@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const width = 800;
 const height = 600;
 const chartCallback = (ChartJS) => {
+  // These are Chart.js 3.x compatible settings
   ChartJS.defaults.font.family = 'Arial';
   ChartJS.defaults.font.size = 16;
   ChartJS.defaults.color = '#666';
