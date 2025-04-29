@@ -7,6 +7,7 @@ A Discord bot that allows users to track their expenses by sending messages, whi
 - Record expenses via direct messages or commands
 - Categorize expenses with hashtags
 - View expense summaries by time period and category
+- Visualize expenses with charts
 - Integration with Google Sheets for data storage
 
 ## Setup
@@ -33,81 +34,88 @@ A Discord bot that allows users to track their expenses by sending messages, whi
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
-3. Enable the Google Sheets API
+3. Enable the Google Sheets API and Google Drive API
 4. Create service account credentials:
    - Go to "Credentials" > "Create Credentials" > "Service Account"
    - Fill out the required information
    - Grant the service account the "Editor" role
    - Create a key in JSON format and download it
-5. Create a new Google Sheet
-6. Share the sheet with the email address of your service account (with Editor access)
-7. Copy the Sheet ID from the URL (the long string between `/d/` and `/edit`)
+5. Place the downloaded credentials file in your project directory as `credentials.json`
 
-### Project Setup
+## Installation
 
 1. Clone this repository
 2. Install dependencies:
    ```
    npm install
    ```
+   If you encounter dependency issues, use:
+   ```
+   npm install --legacy-peer-deps
+   ```
 3. Create a `.env` file with the following variables:
    ```
    DISCORD_TOKEN=your_discord_bot_token
    CLIENT_ID=your_discord_client_id
-   GUILD_ID=your_discord_guild_id
-   GOOGLE_SHEETS_ID=your_google_sheet_id
    GOOGLE_APPLICATION_CREDENTIALS=./credentials.json
    PREFIX=!
    DEFAULT_CURRENCY=USD
    TIMEZONE=America/New_York
    ```
-4. Place your Google service account JSON file in the project root and rename it to `credentials.json`
-5. Start the bot:
+4. Start the bot:
    ```
    npm start
    ```
 
-## Usage
+## Using the Bot
+
+### First-Time Setup
+
+When you first start the bot, you'll need to set up a Google Sheet:
+
+1. Use the `/setup create` command to create a new sheet
+   - The sheet will be publicly viewable by default (but not editable)
+   - Use `/setup create public:false` if you want a private sheet
+
+2. Alternatively, link an existing sheet:
+   - Share your Google Sheet with the service account email from your credentials.json file
+   - Use `/setup link sheet_id:YOUR_SHEET_ID` to connect it
+
+### Accessing Your Sheet
+
+- **Public Sheets**: Click the link provided by the bot after setup
+- **Private Sheets**: You'll need to:
+  1. Request access using your Google account
+  2. Share the sheet from your Google account with the bot's service account (from credentials.json)
 
 ### Recording Expenses
 
 You can record expenses in two ways:
 
-1. Send a direct message to the bot with your expense:
+1. Direct Message: Just send the amount and description to the bot
    ```
    20 lunch
    ```
 
-2. Use the command in any channel:
+2. Server Command: Type `!expense` followed by the amount and description
    ```
-   !expense 20 lunch
+   !expense 15.50 coffee
    ```
 
-### Expense Format
-
-The basic format is:
+Add categories using hashtags:
 ```
-amount [currency] description [#category]
+25 dinner #food
 ```
 
-Examples:
-- `20 lunch` - Records $20 spent on lunch
-- `12.50 EUR coffee` - Records €12.50 spent on coffee
-- `35.99 new headphones #electronics` - Records with category
+Specify currency (default is USD):
+```
+30 EUR taxi #travel
+```
 
-### Commands
+### Viewing Expense Reports
 
-- `/help` - Shows help information
-- `/summary` - Shows expense summary with options for time period and category filtering
-
-## Deployment
-
-For production deployment, consider using a service like:
-- [Heroku](https://heroku.com)
-- [Railway](https://railway.app)
-- [DigitalOcean](https://digitalocean.com)
-
-Remember to set the environment variables on your hosting platform.
+- `/summary` - Get a summary of your expenses
+- `/visualize` - Generate charts of your spending patterns
 
 ## License
 

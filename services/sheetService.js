@@ -158,9 +158,10 @@ async function getExpenseSummary(userId, options = {}) {
 /**
  * Create a new Google Sheet for expense tracking
  * @param {string} sheetName - Name for the new sheet
+ * @param {boolean} makePublic - Whether to make the sheet publicly viewable
  * @returns {Object} - Information about the created sheet
  */
-async function createNewSheet(sheetName) {
+async function createNewSheet(sheetName, makePublic = true) {
   try {
     // Get credentials
     const credentials = JSON.parse(
@@ -171,11 +172,17 @@ async function createNewSheet(sheetName) {
     const jwtClient = new JWT({
       email: credentials.client_email,
       key: credentials.private_key,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets', 
+        'https://www.googleapis.com/auth/drive'
+      ],
     });
     
     // Create a new Sheets client
     const sheets = google.sheets({ version: 'v4', auth: jwtClient });
+    
+    // Create a new Drive client (for permissions)
+    const drive = google.drive({ version: 'v3', auth: jwtClient });
     
     // Create a new spreadsheet
     const response = await sheets.spreadsheets.create({
@@ -228,7 +235,7 @@ async function createNewSheet(sheetName) {
           {
             repeatCell: {
               range: {
-                sheetId: expensesSheetId, // Use the actual sheet ID from response
+                sheetId: expensesSheetId,
                 startRowIndex: 0,
                 endRowIndex: 1,
                 startColumnIndex: 0,
@@ -258,11 +265,29 @@ async function createNewSheet(sheetName) {
       }
     });
     
+    // Make the sheet accessible to users if requested
+    if (makePublic) {
+      try {
+        await drive.permissions.create({
+          fileId: spreadsheetId,
+          requestBody: {
+            role: 'reader',
+            type: 'anyone'
+          }
+        });
+        logger.info(`Made sheet ${spreadsheetId} publicly accessible (view-only)`);
+      } catch (permError) {
+        logger.error(`Failed to make sheet public: ${permError}`);
+        // Continue anyway - the sheet is created but not public
+      }
+    }
+    
     logger.info(`Created new Google Sheet: ${sheetName} (${spreadsheetId})`);
     
     return {
       spreadsheetId,
-      spreadsheetUrl
+      spreadsheetUrl,
+      isPublic: makePublic
     };
   } catch (error) {
     logger.error('Error creating new sheet:', error);

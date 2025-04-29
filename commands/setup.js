@@ -12,7 +12,11 @@ module.exports = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('create')
-        .setDescription('Create a new Google Sheet for tracking expenses'))
+        .setDescription('Create a new Google Sheet for tracking expenses')
+        .addBooleanOption(option =>
+          option.setName('public')
+            .setDescription('Make the sheet publicly viewable (recommended)')
+            .setRequired(false)))
     .addSubcommand(subcommand =>
       subcommand
         .setName('link')
@@ -51,22 +55,46 @@ module.exports = {
       }
 
       if (interaction.options.getSubcommand() === 'create') {
+        // Get public option (defaults to true for better UX)
+        const makePublic = interaction.options.getBoolean('public') ?? true;
+        
         // Create a new sheet
-        const sheetInfo = await createNewSheet(`Expense Tracker - ${interaction.user.username}`);
+        const sheetInfo = await createNewSheet(`Expense Tracker - ${interaction.user.username}`, makePublic);
         
         // Update .env file with the new sheet ID
         updateEnvFile('GOOGLE_SHEETS_ID', sheetInfo.spreadsheetId);
         
+        // Create different embeds based on whether the sheet is public or private
         const embed = new EmbedBuilder()
           .setTitle('✅ New Expense Sheet Created')
           .setColor('#00FF00')
           .setDescription(`Your expense tracking sheet has been created successfully!`)
           .addFields(
             { name: 'Sheet Name', value: sheetInfo.spreadsheetUrl.split('/')[5], inline: true },
-            { name: 'Sheet ID', value: sheetInfo.spreadsheetId, inline: true },
-            { name: 'Link', value: `[Open in Browser](${sheetInfo.spreadsheetUrl})` }
-          )
-          .setFooter({ text: 'You can now start tracking your expenses!' });
+            { name: 'Sheet ID', value: sheetInfo.spreadsheetId, inline: true }
+          );
+          
+        if (sheetInfo.isPublic) {
+          embed.addFields({ 
+            name: 'Access', 
+            value: 'Your sheet is publicly viewable (but not editable). Anyone with the link can view it.'
+          });
+          embed.addFields({ 
+            name: 'Link', 
+            value: `[Open in Browser](${sheetInfo.spreadsheetUrl})`
+          });
+        } else {
+          embed.addFields({ 
+            name: 'Access', 
+            value: `The sheet is private. You need to manually share it with your email to access it.`,
+          });
+          embed.addFields({ 
+            name: 'How to Access', 
+            value: `1. Copy the URL: ${sheetInfo.spreadsheetUrl}\n2. Open the URL in your browser\n3. Request access using your Google account\n4. The bot's service account (check credentials.json) will need to grant you access`
+          });
+        }
+        
+        embed.setFooter({ text: 'You can now start tracking your expenses!' });
         
         return interaction.editReply({ embeds: [embed], components: [] });
       } else {
@@ -87,7 +115,8 @@ module.exports = {
             .addFields(
               { name: 'Sheet Name', value: validationResult.title, inline: true },
               { name: 'Sheet ID', value: sheetId, inline: true },
-              { name: 'Link', value: `[Open in Browser](${validationResult.url})` }
+              { name: 'Link', value: `[Open in Browser](${validationResult.url})` },
+              { name: 'Important Note', value: 'Make sure you have shared this sheet with the bot\'s service account email from credentials.json with Editor permissions' }
             )
             .setFooter({ text: 'You can now start tracking your expenses!' });
           
