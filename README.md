@@ -7,7 +7,9 @@ A Discord bot that allows users to track their expenses by sending messages, whi
 - Record expenses via direct messages or commands
 - Categorize expenses with hashtags
 - View expense summaries by time period and category
-- Visualize expenses with charts
+- Visualize expenses with multiple chart types
+- Automatic Google Sheet creation or linking
+- Public or private sheet options
 - Integration with Google Sheets for data storage
 
 ## Setup
@@ -47,12 +49,15 @@ A Discord bot that allows users to track their expenses by sending messages, whi
 1. Clone this repository
 2. Install dependencies:
    ```
-   npm install
-   ```
-   If you encounter dependency issues, use:
-   ```
    npm install --legacy-peer-deps
    ```
+   
+   If you encounter specific Chart.js dependency issues, you can use the included fix script:
+   ```
+   chmod +x scripts/install-fix.sh
+   ./scripts/install-fix.sh
+   ```
+
 3. Create a `.env` file with the following variables:
    ```
    DISCORD_TOKEN=your_discord_bot_token
@@ -62,6 +67,7 @@ A Discord bot that allows users to track their expenses by sending messages, whi
    DEFAULT_CURRENCY=USD
    TIMEZONE=America/New_York
    ```
+
 4. Start the bot:
    ```
    npm start
@@ -86,18 +92,19 @@ When you first start the bot, you'll need to set up a Google Sheet:
 - **Public Sheets**: Click the link provided by the bot after setup
 - **Private Sheets**: You'll need to:
   1. Request access using your Google account
-  2. Share the sheet from your Google account with the bot's service account (from credentials.json)
+  2. Share the sheet from your Google account with the bot's service account email
+  3. The service account email can be found in your credentials.json file as "client_email"
 
 ### Recording Expenses
 
 You can record expenses in two ways:
 
-1. Direct Message: Just send the amount and description to the bot
+1. **Direct Message**: Just send the amount and description to the bot
    ```
    20 lunch
    ```
 
-2. Server Command: Type `!expense` followed by the amount and description
+2. **Server Command**: Type `!expense` followed by the amount and description
    ```
    !expense 15.50 coffee
    ```
@@ -115,7 +122,57 @@ Specify currency (default is USD):
 ### Viewing Expense Reports
 
 - `/summary` - Get a summary of your expenses
+  - Options: period (today, week, month, year, all)
+  - Filter by category
+
 - `/visualize` - Generate charts of your spending patterns
+  - **Chart Types**:
+    - `pie-category` - Pie chart showing expense distribution by category
+    - `bar-weekly` - Bar chart showing expenses by week
+    - `line-monthly` - Line chart showing monthly expense trends
+    - `bar-category` - Horizontal bar chart comparing category expenses
+  - Options: period (week, month, year, all)
+
+### Help and Documentation
+
+- `/help` - Shows detailed help information about using the bot
+
+## Testing
+
+The bot includes several tools to help with testing:
+
+### Automated Tests
+
+Run the automated test suite:
+```
+npm test
+```
+
+### Manual Testing
+
+Test the bot without Discord:
+```
+npm run test:bot
+```
+
+This opens an interactive console where you can:
+- Test expense parsing with `parse 20 lunch`
+- Create a test sheet with `setup create`
+- Add test expenses with `add 25 dinner #food`
+
+### Verify Configuration
+
+Check your environment and credentials:
+```
+npm run test:config
+```
+
+## Troubleshooting
+
+- **Discord Token Issues**: Make sure your token is correct and the bot is invited to your server
+- **Google Sheets Access**: Verify your service account credentials have the right permissions
+- **Chart Generation Errors**: If visualization fails, try testing with `node scripts/test-visualization.js`
+- **Installation Problems**: Use the install-fix script to resolve dependency conflicts
 
 ## License
 
