@@ -207,6 +207,9 @@ async function createNewSheet(sheetName) {
     const spreadsheetId = response.data.spreadsheetId;
     const spreadsheetUrl = response.data.spreadsheetUrl;
     
+    // Get sheet IDs from the response
+    const expensesSheetId = response.data.sheets[0].properties.sheetId;
+    
     // Add headers to the Expenses sheet
     await sheets.spreadsheets.values.update({
       spreadsheetId,
@@ -217,7 +220,7 @@ async function createNewSheet(sheetName) {
       }
     });
     
-    // Format the headers
+    // Format the headers with the correct sheet ID
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       resource: {
@@ -225,7 +228,7 @@ async function createNewSheet(sheetName) {
           {
             repeatCell: {
               range: {
-                sheetId: 0,
+                sheetId: expensesSheetId, // Use the actual sheet ID from response
                 startRowIndex: 0,
                 endRowIndex: 1,
                 startColumnIndex: 0,
