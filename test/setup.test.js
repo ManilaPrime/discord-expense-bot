@@ -23,17 +23,36 @@ describe('Sheet Service Setup Tests', () => {
   });
 
   test('createNewSheet should create a Google Sheet', async () => {
-    // Mock the Google Sheets API response
+    // Mock the Google Sheets API response with proper sheets array
     const mockSpreadsheet = {
       data: {
         spreadsheetId: 'test-sheet-id',
-        spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/test-sheet-id'
+        spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/test-sheet-id',
+        sheets: [
+          {
+            properties: {
+              sheetId: 123456,
+              title: 'Expenses'
+            }
+          },
+          {
+            properties: {
+              sheetId: 789012,
+              title: 'Summary'
+            }
+          }
+        ]
       }
+    };
+    
+    // Mock Google Drive API for permissions
+    const mockPermissionResponse = {
+      data: { id: 'test-permission-id' }
     };
     
     // Set up mocks for Google APIs
     const { google } = require('googleapis');
-    google.sheets.mockReturnValue({
+    const mockSheetsApi = {
       spreadsheets: {
         create: jest.fn().mockResolvedValue(mockSpreadsheet),
         values: {
@@ -41,19 +60,33 @@ describe('Sheet Service Setup Tests', () => {
         },
         batchUpdate: jest.fn().mockResolvedValue({})
       }
-    });
+    };
+    
+    const mockDriveApi = {
+      permissions: {
+        create: jest.fn().mockResolvedValue(mockPermissionResponse)
+      }
+    };
+    
+    google.sheets.mockReturnValue(mockSheetsApi);
+    google.drive.mockReturnValue(mockDriveApi);
 
     // Call the function with test data
-    const result = await createNewSheet('Test Expense Sheet');
+    const result = await createNewSheet('Test Expense Sheet', true);
     
     // Check the result matches expected values
     expect(result).toEqual({
       spreadsheetId: 'test-sheet-id',
-      spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/test-sheet-id'
+      spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/test-sheet-id',
+      isPublic: true
     });
     
     // Verify Google API was called with expected arguments
     expect(google.sheets).toHaveBeenCalled();
+    expect(mockSheetsApi.spreadsheets.create).toHaveBeenCalled();
+    expect(mockSheetsApi.spreadsheets.values.update).toHaveBeenCalled();
+    expect(mockSheetsApi.spreadsheets.batchUpdate).toHaveBeenCalled();
+    expect(mockDriveApi.permissions.create).toHaveBeenCalled();
   });
 
   test('validateSheetAccess should verify sheet exists and is accessible', async () => {
