@@ -1,5 +1,6 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
+const { google } = require('googleapis');
 const fs = require('fs');
 const logger = require('../utils/logger');
 
@@ -27,6 +28,11 @@ const getJwtClient = () => {
  */
 async function addExpenseToSheet(expense) {
   try {
+    // Check if Google Sheets ID is set
+    if (!process.env.GOOGLE_SHEETS_ID) {
+      throw new Error('Google Sheets ID is not configured. Use /setup first.');
+    }
+    
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
     
@@ -88,6 +94,11 @@ async function addExpenseToSheet(expense) {
  */
 async function getExpenseSummary(userId, options = {}) {
   try {
+    // Check if Google Sheets ID is set
+    if (!process.env.GOOGLE_SHEETS_ID) {
+      throw new Error('Google Sheets ID is not configured. Use /setup first.');
+    }
+    
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
     
@@ -144,4 +155,148 @@ async function getExpenseSummary(userId, options = {}) {
   }
 }
 
-module.exports = { addExpenseToSheet, getExpenseSummary };
+/**
+ * Create a new Google Sheet for expense tracking
+ * @param {string} sheetName - Name for the new sheet
+ * @returns {Object} - Information about the created sheet
+ */
+async function createNewSheet(sheetName) {
+  try {
+    // Get credentials
+    const credentials = JSON.parse(
+      fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8')
+    );
+    
+    // Create a new JWT client
+    const jwtClient = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
+    });
+    
+    // Create a new Sheets client
+    const sheets = google.sheets({ version: 'v4', auth: jwtClient });
+    
+    // Create a new spreadsheet
+    const response = await sheets.spreadsheets.create({
+      resource: {
+        properties: {
+          title: sheetName
+        },
+        sheets: [
+          {
+            properties: {
+              title: 'Expenses',
+              gridProperties: {
+                frozenRowCount: 1
+              }
+            }
+          },
+          {
+            properties: {
+              title: 'Summary',
+              gridProperties: {
+                frozenRowCount: 1
+              }
+            }
+          }
+        ]
+      }
+    });
+    
+    const spreadsheetId = response.data.spreadsheetId;
+    const spreadsheetUrl = response.data.spreadsheetUrl;
+    
+    // Add headers to the Expenses sheet
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Expenses!A1:H1',
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Description', 'Category', 'Date']]
+      }
+    });
+    
+    // Format the headers
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      resource: {
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId: 0,
+                startRowIndex: 0,
+                endRowIndex: 1,
+                startColumnIndex: 0,
+                endColumnIndex: 8
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: {
+                    red: 0.2,
+                    green: 0.2,
+                    blue: 0.2
+                  },
+                  textFormat: {
+                    bold: true,
+                    foregroundColor: {
+                      red: 1.0,
+                      green: 1.0,
+                      blue: 1.0
+                    }
+                  }
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)'
+            }
+          }
+        ]
+      }
+    });
+    
+    logger.info(`Created new Google Sheet: ${sheetName} (${spreadsheetId})`);
+    
+    return {
+      spreadsheetId,
+      spreadsheetUrl
+    };
+  } catch (error) {
+    logger.error('Error creating new sheet:', error);
+    throw error;
+  }
+}
+
+/**
+ * Validate access to an existing Google Sheet
+ * @param {string} sheetId - The ID of the sheet to validate
+ * @returns {Object} - Validation result
+ */
+async function validateSheetAccess(sheetId) {
+  try {
+    const jwtClient = getJwtClient();
+    const doc = new GoogleSpreadsheet(sheetId, jwtClient);
+    
+    // Try to load the sheet info
+    await doc.loadInfo();
+    
+    return {
+      success: true,
+      title: doc.title,
+      url: `https://docs.google.com/spreadsheets/d/${sheetId}`
+    };
+  } catch (error) {
+    logger.error('Error validating sheet access:', error);
+    return {
+      success: false,
+      error: 'Could not access the Google Sheet. Make sure the bot service account has permission to access it.'
+    };
+  }
+}
+
+module.exports = { 
+  addExpenseToSheet, 
+  getExpenseSummary, 
+  createNewSheet, 
+  validateSheetAccess 
+};

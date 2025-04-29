@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
 const { handleMessage } = require('./handlers/messageHandler');
 const { setupCommands } = require('./handlers/commandHandler');
 const logger = require('./utils/logger');
@@ -18,6 +18,11 @@ const client = new Client({
 client.once(Events.ClientReady, () => {
   logger.info(`Logged in as ${client.user.tag}`);
   setupCommands(client);
+  
+  // Check if Google Sheets is configured
+  if (!process.env.GOOGLE_SHEETS_ID) {
+    logger.warn('Google Sheets ID not configured. Bot will prompt users to run setup.');
+  }
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -25,6 +30,30 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
   
   try {
+    // Check if Google Sheets is configured
+    if (!process.env.GOOGLE_SHEETS_ID) {
+      // Only respond to direct messages or mentions
+      const isDM = message.channel.type === 'DM';
+      const isMention = message.mentions.has(client.user);
+      
+      if (isDM || isMention) {
+        const setupEmbed = new EmbedBuilder()
+          .setTitle('⚙️ Setup Required')
+          .setColor('#FFA500')
+          .setDescription('Your expense tracker needs to be set up before you can start tracking expenses!')
+          .addFields(
+            { name: 'Option 1: Create a New Sheet', value: 'Use `/setup create` to automatically create a new Google Sheet.', inline: false },
+            { name: 'Option 2: Link Your Own Sheet', value: 'Use `/setup link <sheet_id>` to connect an existing Google Sheet.', inline: false },
+            { name: 'Need Help?', value: 'Type `/help` for more information on using this bot.', inline: false }
+          )
+          .setFooter({ text: 'You only need to do this setup once.' });
+        
+        return message.reply({ embeds: [setupEmbed] });
+      }
+      
+      return;
+    }
+    
     await handleMessage(message);
   } catch (error) {
     logger.error('Error handling message:', error);
@@ -38,6 +67,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;
+
+    // Allow setup command to run even if sheet is not configured
+    if (!process.env.GOOGLE_SHEETS_ID && interaction.commandName !== 'setup' && interaction.commandName !== 'help') {
+      return interaction.reply({
+        content: 'Please set up your expense tracker first using the `/setup` command.',
+        ephemeral: true
+      });
+    }
 
     await command.execute(interaction);
   } catch (error) {
