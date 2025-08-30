@@ -1,5 +1,5 @@
 require('dotenv').config();
-const express = require('express'); // Added Express
+const express = require('express');
 const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
 const { handleMessage } = require('./handlers/messageHandler');
 const { setupCommands } = require('./handlers/commandHandler');
@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running!'));
 app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
-// ------------------- Initialize Discord Client -------------------
+// ------------------- Discord Bot -------------------
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,8 +26,7 @@ const client = new Client({
 client.once(Events.ClientReady, () => {
   logger.info(`Logged in as ${client.user.tag}`);
   setupCommands(client);
-
-  // Check if Google Sheets is configured
+  
   if (!process.env.GOOGLE_SHEETS_ID) {
     logger.warn('Google Sheets ID not configured. Bot will prompt users to run setup.');
   }
@@ -47,22 +46,21 @@ client.on(Events.MessageCreate, async (message) => {
           .setColor('#FFA500')
           .setDescription('Your expense tracker needs to be set up before you can start tracking expenses!')
           .addFields(
-            { name: 'Option 1: Create a New Sheet', value: 'Use `/setup create` to automatically create a new Google Sheet.', inline: false },
-            { name: 'Option 2: Link Your Own Sheet', value: 'Use `/setup link <sheet_id>` to connect an existing Google Sheet.', inline: false },
-            { name: 'Need Help?', value: 'Type `/help` for more information on using this bot.', inline: false }
+            { name: 'Option 1: Create a New Sheet', value: 'Use `/setup create` to automatically create a new Google Sheet.' },
+            { name: 'Option 2: Link Your Own Sheet', value: 'Use `/setup link <sheet_id>` to connect an existing Google Sheet.' },
+            { name: 'Need Help?', value: 'Type `/help` for more information.' }
           )
           .setFooter({ text: 'You only need to do this setup once.' });
-
+        
         return message.reply({ embeds: [setupEmbed] });
       }
-
       return;
     }
-
+    
     await handleMessage(message);
   } catch (error) {
     logger.error('Error handling message:', error);
-    message.reply('Sorry, there was an error processing your request. Please try again later.');
+    message.reply('Sorry, there was an error processing your request.');
   }
 });
 
@@ -90,15 +88,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Login with token
-client.login(process.env.DISCORD_TOKEN)
-  .then(() => console.log('Bot logged in successfully'))
-  .catch(err => {
-    console.error('Failed to login:', err);
-    process.exit(1); // Crash so Render restarts the bot
-  });
+// Login
+client.login(process.env.DISCORD_TOKEN);
 
-// Handle process termination
+// Handle shutdown
 process.on('SIGINT', () => {
   logger.info('Bot is shutting down...');
   client.destroy();
