@@ -94,4 +94,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.login(process.env.DISCORD_TOKEN);
 
 // Handle process termination
-process.on('SIGINT', ()
+process.on('SIGINT', () => {
+  logger.info('Bot is shutting down...');
+  client.destroy();
+  process.exit(0);
+});
+
