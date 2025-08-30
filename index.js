@@ -1,10 +1,18 @@
 require('dotenv').config();
+const express = require('express'); // Added Express
 const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
 const { handleMessage } = require('./handlers/messageHandler');
 const { setupCommands } = require('./handlers/commandHandler');
 const logger = require('./utils/logger');
 
-// Initialize Discord client
+// ------------------- Minimal Web Server -------------------
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => res.send('Bot is running!'));
+app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
+
+// ------------------- Initialize Discord Client -------------------
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -18,7 +26,7 @@ const client = new Client({
 client.once(Events.ClientReady, () => {
   logger.info(`Logged in as ${client.user.tag}`);
   setupCommands(client);
-  
+
   // Check if Google Sheets is configured
   if (!process.env.GOOGLE_SHEETS_ID) {
     logger.warn('Google Sheets ID not configured. Bot will prompt users to run setup.');
@@ -26,16 +34,13 @@ client.once(Events.ClientReady, () => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  // Ignore messages from bots
   if (message.author.bot) return;
-  
+
   try {
-    // Check if Google Sheets is configured
     if (!process.env.GOOGLE_SHEETS_ID) {
-      // Only respond to direct messages or mentions
       const isDM = message.channel.type === 'DM';
       const isMention = message.mentions.has(client.user);
-      
+
       if (isDM || isMention) {
         const setupEmbed = new EmbedBuilder()
           .setTitle('⚙️ Setup Required')
@@ -47,13 +52,13 @@ client.on(Events.MessageCreate, async (message) => {
             { name: 'Need Help?', value: 'Type `/help` for more information on using this bot.', inline: false }
           )
           .setFooter({ text: 'You only need to do this setup once.' });
-        
+
         return message.reply({ embeds: [setupEmbed] });
       }
-      
+
       return;
     }
-    
+
     await handleMessage(message);
   } catch (error) {
     logger.error('Error handling message:', error);
@@ -68,7 +73,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;
 
-    // Allow setup command to run even if sheet is not configured
     if (!process.env.GOOGLE_SHEETS_ID && interaction.commandName !== 'setup' && interaction.commandName !== 'help') {
       return interaction.reply({
         content: 'Please set up your expense tracker first using the `/setup` command.',
@@ -87,7 +91,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // Login with token
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN)
+  .then(() => console.log('Bot logged in successfully'))
+  .catch(err => {
+    console.error('Failed to login:', err);
+    process.exit(1); // Crash so Render restarts the bot
+  });
 
 // Handle process termination
 process.on('SIGINT', () => {
